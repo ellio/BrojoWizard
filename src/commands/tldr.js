@@ -133,17 +133,33 @@ ${topMessageContext}
 Conversation transcript:
 ${conversationText}`;
 
-        // ── Call Gemini ──────────────────────────────────────────────────────
-        const result = await genai.models.generateContent({
-            model: 'gemini-3.1-flash-lite-preview',
+        // ── Call Gemini (with fallback) ──────────────────────────────────────
+        const geminiConfig = {
             contents: userPrompt,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 serviceTier: 'standard',
             },
-        });
+        };
+
+        let result;
+        let modelUsed;
+        try {
+            result = await genai.models.generateContent({
+                model: 'gemini-3.1-flash-lite-preview',
+                ...geminiConfig,
+            });
+            modelUsed = 'gemini-3.1-flash-lite-preview';
+        } catch (primaryErr) {
+            console.log(`[tldr] Primary model failed (${primaryErr.message?.slice(0, 80)}), falling back to gemini-2.0-flash`);
+            result = await genai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                ...geminiConfig,
+            });
+            modelUsed = 'gemini-2.0-flash (fallback)';
+        }
         const summary = result.text;
-        lap(`gemini responded (${summary.length} chars)`);
+        lap(`gemini responded via ${modelUsed} (${summary.length} chars)`);
 
         // ── Send response (public in channel) ───────────────────────────────
         const requester = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
