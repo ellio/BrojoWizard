@@ -57,8 +57,8 @@ gcloud run deploy $SERVICE_NAME `
     --no-allow-unauthenticated `
     --min-instances 1 `
     --max-instances 1 `
-    --cpu-always-allocated `
-    --memory 256Mi `
+    --no-cpu-throttling `
+    --memory 512Mi `
     --cpu 1 `
     --port 8080 `
     --timeout 300
