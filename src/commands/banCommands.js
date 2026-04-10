@@ -18,8 +18,8 @@ export async function handleTldrBan(interaction) {
         return;
     }
 
-    const { expiresAt, label } = addBan(target.id, parsed.ms);
-    console.log(`[ban] ${interaction.user.tag} banned ${target.tag} (${target.id}) for ${label} until ${expiresAt.toISOString()}`);
+    const { expiresAt, label } = addBan(interaction.guildId, target.id, parsed.ms);
+    console.log(`[ban] ${interaction.user.tag} banned ${target.tag} (${target.id}) in guild ${interaction.guildId} for ${label} until ${expiresAt.toISOString()}`);
 
     await interaction.reply({
         content: `🔨 **${target.displayName}** has been banned from using The Brojo Wizard for **${label}**.`,
@@ -33,7 +33,7 @@ export async function handleTldrBan(interaction) {
 export async function handleTldrUnban(interaction) {
     const target = interaction.options.getUser('user');
 
-    const { banned } = checkBan(target.id);
+    const { banned } = checkBan(interaction.guildId, target.id);
     if (!banned) {
         await interaction.reply({
             content: `ℹ️ **${target.displayName}** is not currently banned.`,
@@ -42,8 +42,8 @@ export async function handleTldrUnban(interaction) {
         return;
     }
 
-    removeBan(target.id);
-    console.log(`[unban] ${interaction.user.tag} unbanned ${target.tag} (${target.id})`);
+    removeBan(interaction.guildId, target.id);
+    console.log(`[unban] ${interaction.user.tag} unbanned ${target.tag} (${target.id}) in guild ${interaction.guildId}`);
 
     await interaction.reply({
         content: `✅ **${target.displayName}** has been unbanned and can use The Brojo Wizard again.`,

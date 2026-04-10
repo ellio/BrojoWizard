@@ -62,7 +62,7 @@ export async function handleTldr(interaction) {
     };
 
     // ── Ban check ────────────────────────────────────────────────────────────
-    const { banned, remainingLabel } = checkBan(interaction.user.id);
+    const { banned, remainingLabel } = checkBan(interaction.guildId, interaction.user.id);
     if (banned) {
         await interaction.reply({
             content: `🚫 You have been banned. You can use the tool again in **${remainingLabel}**.`,

@@ -7,7 +7,7 @@
  * Persistent bans should be added to the BANNED_USERS env var.
  */
 
-/** @type {Map<string, Date>} userId → expiry Date */
+/** @type {Map<string, Date>} "guildId:userId" → expiry Date */
 const bans = new Map();
 
 // Seed from env var on startup
@@ -23,17 +23,19 @@ for (const entry of (process.env.BANNED_USERS || '').split(',').map(s => s.trim(
 }
 
 /**
- * Check if a user is currently banned.
+ * Check if a user is currently banned in a specific server.
+ * @param {string} guildId
  * @param {string} userId
  * @returns {{ banned: boolean, expiresAt?: Date, remainingLabel?: string }}
  */
-export function checkBan(userId) {
-    const expiry = bans.get(userId);
+export function checkBan(guildId, userId) {
+    const key = `${guildId}:${userId}`;
+    const expiry = bans.get(key);
     if (!expiry) return { banned: false };
 
     const now = new Date();
     if (now >= expiry) {
-        bans.delete(userId); // auto-cleanup expired bans
+        bans.delete(key); // auto-cleanup expired bans
         return { banned: false };
     }
 
@@ -41,24 +43,27 @@ export function checkBan(userId) {
 }
 
 /**
- * Ban a user for a specified duration.
+ * Ban a user in a specific server for a specified duration.
+ * @param {string} guildId
  * @param {string} userId
  * @param {number} durationMs
  * @returns {{ expiresAt: Date, label: string }}
  */
-export function addBan(userId, durationMs) {
+export function addBan(guildId, userId, durationMs) {
+    const key = `${guildId}:${userId}`;
     const expiresAt = new Date(Date.now() + durationMs);
-    bans.set(userId, expiresAt);
+    bans.set(key, expiresAt);
     return { expiresAt, label: formatRemaining(durationMs) };
 }
 
 /**
- * Remove a ban for a user.
+ * Remove a ban for a user in a specific server.
+ * @param {string} guildId
  * @param {string} userId
  * @returns {boolean} true if they were banned
  */
-export function removeBan(userId) {
-    return bans.delete(userId);
+export function removeBan(guildId, userId) {
+    return bans.delete(`${guildId}:${userId}`);
 }
 
 /**
