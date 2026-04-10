@@ -165,7 +165,7 @@ Conversation transcript:
 ${conversationText}`;
 
         // ── Call Gemini ──────────────────────────────────────────────────────
-        const { text: summary, model: modelUsed, isFallback } = await generateWithFallback(
+        const { text: summary, model: modelUsed, isFallback, tokens } = await generateWithFallback(
             userPrompt, SYSTEM_INSTRUCTION, 'tldr'
         );
         const fallbackNote = isFallback ? FALLBACK_NOTE : '';
@@ -174,7 +174,10 @@ ${conversationText}`;
         // ── Send response (public in channel) ───────────────────────────────
         const requester = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
         const header = `🧙 **${requester}** requested a summary of the last **${parsed.label}**\n\n`;
-        const fullResponse = header + summary + fallbackNote;
+        // 0.40mL per 1000 input tokens, 1 tsp ≈ 4.93mL
+        const tsp = ((tokens.input / 1000) * 0.40 / 4.93).toFixed(1);
+        const waterNote = `\n\n*💧 This request used ${tsp} teaspoons of water*`;
+        const fullResponse = header + summary + fallbackNote + waterNote;
 
         // Discord has a 2000 char limit — split into 2 messages max
         if (fullResponse.length <= 1900) {
