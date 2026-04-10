@@ -115,7 +115,7 @@ ${conversationText}`;
 
         // ── Call Gemini ──────────────────────────────────────────────────────
         const result = await genai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-flash-lite-preview',
             contents: userPrompt,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
