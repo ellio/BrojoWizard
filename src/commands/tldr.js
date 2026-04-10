@@ -31,7 +31,7 @@ Output format (use these exact headers):
 📋 **TLDR**
 A 2-4 sentence overview of what went down.
 
-🏆 **Most Fire Post**
+🏅 **Fan Favorite**
 Reference the top-reacted message naturally with the provided link.
 
 👥 **Key Players**
