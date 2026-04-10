@@ -7,6 +7,7 @@ import http from 'node:http';
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import 'dotenv/config';
 import { handleTldr } from './commands/tldr.js';
+import { handleAllTldr } from './commands/allTldr.js';
 import { cleanupRateLimits } from './utils/rateLimiter.js';
 
 // ── Validate config ───────────────────────────────────────────────────────────
@@ -40,6 +41,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (interaction.commandName === 'tldr') {
         await handleTldr(interaction);
+    } else if (interaction.commandName === 'all-tldr') {
+        await handleAllTldr(interaction);
     }
 });
 

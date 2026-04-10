@@ -16,6 +16,15 @@ const commands = [
                 .setDescription('How far back to look — e.g. 30m, 4h, 2d (max 3d)')
                 .setRequired(true)
         ),
+    new SlashCommandBuilder()
+        .setName('all-tldr')
+        .setDescription('Get a server-wide AI summary across all channels')
+        .addStringOption(option =>
+            option
+                .setName('duration')
+                .setDescription('How far back to look — e.g. 30m, 4h, 2d (max 3d)')
+                .setRequired(true)
+        ),
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
