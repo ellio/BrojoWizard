@@ -46,7 +46,8 @@ export async function fetchMessagesSince(channel, cutoffDate) {
 }
 
 /**
- * Rank messages by total reaction count.
+ * Rank messages by highest single reaction count, tiebroken by cumulative total.
+ * e.g. a message with (4)(1) beats (1)(1)(1)(1)(1)(1)(1) because 4 > 1.
  * @param {import('discord.js').Message[]} messages
  * @returns {{ topMessage: import('discord.js').Message | null, totalReactions: number }}
  */
@@ -54,17 +55,24 @@ export function findTopReactedMessage(messages) {
     if (messages.length === 0) return { topMessage: null, totalReactions: 0 };
 
     let topMessage = null;
-    let topCount = 0;
+    let topMaxSingle = 0;  // highest individual reaction count
+    let topCumulative = 0; // tiebreaker: total reactions
 
     for (const msg of messages) {
-        const count = msg.reactions.cache.reduce((sum, r) => sum + r.count, 0);
-        if (count > topCount) {
-            topCount = count;
+        const reactions = msg.reactions.cache;
+        if (reactions.size === 0) continue;
+
+        const maxSingle = reactions.reduce((max, r) => Math.max(max, r.count), 0);
+        const cumulative = reactions.reduce((sum, r) => sum + r.count, 0);
+
+        if (maxSingle > topMaxSingle || (maxSingle === topMaxSingle && cumulative > topCumulative)) {
+            topMaxSingle = maxSingle;
+            topCumulative = cumulative;
             topMessage = msg;
         }
     }
 
-    return { topMessage, totalReactions: topCount };
+    return { topMessage, totalReactions: topCumulative };
 }
 
 /**
