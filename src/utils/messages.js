@@ -1,0 +1,122 @@
+/**
+ * Message fetching, ranking, and prompt formatting utilities.
+ */
+
+import { SnowflakeUtil } from 'discord.js';
+
+const MAX_MESSAGES = 3000; // Safety cap to avoid runaway fetching
+const BATCH_SIZE = 100;    // Discord API max per request
+
+/**
+ * Fetch all messages in a channel since a cutoff date, paginated.
+ * @param {import('discord.js').TextChannel} channel
+ * @param {Date} cutoffDate
+ * @returns {Promise<import('discord.js').Message[]>}
+ */
+export async function fetchMessagesSince(channel, cutoffDate) {
+    const cutoffSnowflake = SnowflakeUtil.generate({ timestamp: cutoffDate.getTime() }).toString();
+    const allMessages = [];
+    let lastId = cutoffSnowflake;
+
+    while (allMessages.length < MAX_MESSAGES) {
+        const batch = await channel.messages.fetch({
+            limit: BATCH_SIZE,
+            after: lastId,
+        });
+
+        if (batch.size === 0) break;
+
+        // batch is sorted newest-first by discord.js, so get the newest ID for next page
+        const sorted = [...batch.values()].sort((a, b) => {
+            // Compare snowflake IDs numerically (bigger = newer)
+            return a.createdTimestamp - b.createdTimestamp;
+        });
+
+        allMessages.push(...sorted);
+        lastId = sorted[sorted.length - 1].id;
+
+        // If we got fewer than a full batch, we've reached the end
+        if (batch.size < BATCH_SIZE) break;
+    }
+
+    // Filter to only messages within our time window (safety check)
+    return allMessages
+        .filter(m => m.createdTimestamp >= cutoffDate.getTime())
+        .slice(0, MAX_MESSAGES);
+}
+
+/**
+ * Rank messages by total reaction count.
+ * @param {import('discord.js').Message[]} messages
+ * @returns {{ topMessage: import('discord.js').Message | null, totalReactions: number }}
+ */
+export function findTopReactedMessage(messages) {
+    if (messages.length === 0) return { topMessage: null, totalReactions: 0 };
+
+    let topMessage = null;
+    let topCount = 0;
+
+    for (const msg of messages) {
+        const count = msg.reactions.cache.reduce((sum, r) => sum + r.count, 0);
+        if (count > topCount) {
+            topCount = count;
+            topMessage = msg;
+        }
+    }
+
+    return { topMessage, totalReactions: topCount };
+}
+
+/**
+ * Get unique participants and their message counts.
+ * @param {import('discord.js').Message[]} messages
+ * @returns {Map<string, { displayName: string, count: number }>}
+ */
+export function getParticipants(messages) {
+    const participants = new Map();
+
+    for (const msg of messages) {
+        if (msg.author.bot) continue;
+
+        const existing = participants.get(msg.author.id);
+        if (existing) {
+            existing.count++;
+        } else {
+            participants.set(msg.author.id, {
+                displayName: msg.member?.displayName || msg.author.displayName || msg.author.username,
+                count: 1,
+            });
+        }
+    }
+
+    return participants;
+}
+
+/**
+ * Format messages into a text block suitable for LLM summarization.
+ * @param {import('discord.js').Message[]} messages
+ * @returns {string}
+ */
+export function formatForPrompt(messages) {
+    const lines = [];
+
+    for (const msg of messages) {
+        if (msg.author.bot) continue;
+        if (!msg.content && msg.attachments.size === 0) continue;
+
+        const name = msg.member?.displayName || msg.author.displayName || msg.author.username;
+        const time = msg.createdAt.toISOString().slice(0, 16).replace('T', ' ');
+        const reactions = msg.reactions.cache.size > 0
+            ? ` [${msg.reactions.cache.map(r => `${r.emoji.name}×${r.count}`).join(', ')}]`
+            : '';
+
+        let content = msg.content || '';
+        if (msg.attachments.size > 0) {
+            content += ` [${msg.attachments.size} attachment(s)]`;
+        }
+
+        lines.push(`[${time}] ${name}: ${content}${reactions}`);
+    }
+
+    return lines.join('\n');
+}
