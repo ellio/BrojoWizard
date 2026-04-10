@@ -35,10 +35,17 @@ export async function generateWithFallback(prompt, systemInstruction, tag = 'gem
         const model = MODELS[i];
         try {
             const result = await genai.models.generateContent({ model, ...config });
+            const usage = result.usageMetadata || {};
+            console.log(`[${tag}] tokens — input: ${usage.promptTokenCount ?? '?'}, output: ${usage.candidatesTokenCount ?? '?'}, total: ${usage.totalTokenCount ?? '?'} (model: ${model})`);
             return {
                 text: result.text,
                 model,
                 isFallback: i > 0,
+                tokens: {
+                    input: usage.promptTokenCount ?? 0,
+                    output: usage.candidatesTokenCount ?? 0,
+                    total: usage.totalTokenCount ?? 0,
+                },
             };
         } catch (err) {
             lastError = err;
