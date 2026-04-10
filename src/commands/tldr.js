@@ -40,6 +40,12 @@ Message count, participant count, time span — keep it one line.`;
  * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
 export async function handleTldr(interaction) {
+    const t0 = Date.now();
+    const lap = (label) => {
+        const elapsed = Date.now() - t0;
+        console.log(`[tldr] ${label} — ${elapsed}ms total`);
+    };
+
     // ── Rate limit check ──────────────────────────────────────────────────────
     const { allowed, retryAfterMs } = checkRateLimit(interaction.user.id);
     if (!allowed) {
@@ -62,12 +68,14 @@ export async function handleTldr(interaction) {
 
     // ── Defer (this might take a while) ───────────────────────────────────────
     await interaction.deferReply({ ephemeral: true });
+    lap('deferred');
 
     try {
         const channel = interaction.channel;
 
         // ── Fetch messages ────────────────────────────────────────────────────
         const messages = await fetchMessagesSince(channel, parsed.cutoff);
+        lap(`fetched ${messages.length} messages`);
 
         if (messages.length === 0) {
             await interaction.editReply({
@@ -80,6 +88,7 @@ export async function handleTldr(interaction) {
         const { topMessage, totalReactions } = findTopReactedMessage(messages);
         const participants = getParticipants(messages);
         const conversationText = formatForPrompt(messages);
+        lap(`analyzed (${conversationText.length} chars prompt, ${participants.size} participants)`);
 
         // ── Build prompt ─────────────────────────────────────────────────────
         let topMessageContext = 'No messages had reactions.';
@@ -104,6 +113,7 @@ ${conversationText}`;
 
         const result = await model.generateContent(userPrompt);
         const summary = result.response.text();
+        lap(`gemini responded (${summary.length} chars)`);
 
         // ── Send response ────────────────────────────────────────────────────
         // Discord has a 2000 char limit for messages
@@ -112,9 +122,11 @@ ${conversationText}`;
             : summary;
 
         await interaction.editReply({ content: truncated });
+        lap('done');
 
     } catch (error) {
         console.error('[tldr] Error:', error);
+        lap('error');
 
         const errorMsg = error.message?.includes('API key')
             ? '🔑 Gemini API key issue. Check your configuration.'
