@@ -2,12 +2,17 @@
  * /tldr slash command — Summarize recent channel conversation using Gemini.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { parseDuration } from '../utils/duration.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Owner IDs exempt from rate limiting (comma-separated in env)
+const OWNER_IDS = new Set(
+    (process.env.OWNER_USER_IDS || '').split(',').map(id => id.trim()).filter(Boolean)
+);
 
 const SYSTEM_INSTRUCTION = `You are BrojoWizard, a casual and witty Discord conversation summarizer. 
 Your job is to read a conversation transcript and produce a concise TLDR summary.
@@ -46,8 +51,11 @@ export async function handleTldr(interaction) {
         console.log(`[tldr] ${label} — ${elapsed}ms total`);
     };
 
-    // ── Rate limit check ──────────────────────────────────────────────────────
-    const { allowed, retryAfterMs } = checkRateLimit(interaction.user.id);
+    // ── Rate limit check (owners exempt) ─────────────────────────────────────
+    const isOwner = OWNER_IDS.has(interaction.user.id);
+    const { allowed, retryAfterMs } = isOwner
+        ? { allowed: true }
+        : checkRateLimit(interaction.user.id);
     if (!allowed) {
         const retryMin = Math.ceil(retryAfterMs / 60000);
         await interaction.reply({
@@ -106,13 +114,15 @@ Conversation transcript:
 ${conversationText}`;
 
         // ── Call Gemini ──────────────────────────────────────────────────────
-        const model = genAI.getGenerativeModel({
+        const result = await genai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            systemInstruction: SYSTEM_INSTRUCTION,
+            contents: userPrompt,
+            config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                serviceTier: 'standard',
+            },
         });
-
-        const result = await model.generateContent(userPrompt);
-        const summary = result.response.text();
+        const summary = result.text;
         lap(`gemini responded (${summary.length} chars)`);
 
         // ── Send response ────────────────────────────────────────────────────

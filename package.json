@@ -14,12 +14,18 @@
     "type": "git",
     "url": "https://github.com/ellio/BrojoWizard.git"
   },
-  "keywords": ["discord", "bot", "tldr", "summarizer", "gemini"],
+  "keywords": [
+    "discord",
+    "bot",
+    "tldr",
+    "summarizer",
+    "gemini"
+  ],
   "author": "ellio",
   "license": "MIT",
   "dependencies": {
+    "@google/genai": "^1.49.0",
     "discord.js": "^14.16.0",
-    "@google/generative-ai": "^0.24.0",
     "dotenv": "^16.4.0"
   }
 }
