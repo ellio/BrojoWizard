@@ -8,6 +8,7 @@ import { Client, GatewayIntentBits, Events } from 'discord.js';
 import 'dotenv/config';
 import { handleTldr } from './commands/tldr.js';
 import { handleAllTldr } from './commands/allTldr.js';
+import { handleTldrBan, handleTldrUnban } from './commands/banCommands.js';
 import { cleanupRateLimits } from './utils/rateLimiter.js';
 
 // ── Validate config ───────────────────────────────────────────────────────────
@@ -43,6 +44,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await handleTldr(interaction);
     } else if (interaction.commandName === 'all-tldr') {
         await handleAllTldr(interaction);
+    } else if (interaction.commandName === 'tldr-ban') {
+        await handleTldrBan(interaction);
+    } else if (interaction.commandName === 'tldr-unban') {
+        await handleTldrUnban(interaction);
     }
 });
 

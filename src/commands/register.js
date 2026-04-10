@@ -3,7 +3,7 @@
  * Run once (or when command definitions change): npm run register
  */
 
-import { REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import 'dotenv/config';
 
 const commands = [
@@ -23,6 +23,32 @@ const commands = [
             option
                 .setName('duration')
                 .setDescription('How far back to look — e.g. 30m, 4h, 2d (max 3d)')
+                .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName('tldr-ban')
+        .setDescription('Ban a user from using The Brojo Wizard')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option
+                .setName('user')
+                .setDescription('The user to ban')
+                .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+                .setName('duration')
+                .setDescription('How long — e.g. 30m, 12h, 3d, 7d')
+                .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName('tldr-unban')
+        .setDescription('Unban a user from using The Brojo Wizard')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option
+                .setName('user')
+                .setDescription('The user to unban')
                 .setRequired(true)
         ),
 ];

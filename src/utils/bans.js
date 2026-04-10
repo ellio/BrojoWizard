@@ -1,22 +1,25 @@
 /**
  * User ban system — time-limited bans from using bot commands.
- * Configured via BANNED_USERS env var: "userId:isoExpiry,userId:isoExpiry"
+ * Seeded from BANNED_USERS env var, with runtime add/remove via commands.
+ * Format: "userId:isoExpiry,userId:isoExpiry"
+ *
+ * Note: Runtime bans are in-memory and reset on redeploy.
+ * Persistent bans should be added to the BANNED_USERS env var.
  */
 
-/**
- * Parse BANNED_USERS env var into a Map of userId → expiry Date.
- * @returns {Map<string, Date>}
- */
-function parseBans() {
-    const raw = process.env.BANNED_USERS || '';
-    const bans = new Map();
-    for (const entry of raw.split(',').map(s => s.trim()).filter(Boolean)) {
-        const [userId, expiry] = entry.split(':');
-        if (userId && expiry) {
-            bans.set(userId.trim(), new Date(expiry.trim()));
-        }
+/** @type {Map<string, Date>} userId → expiry Date */
+const bans = new Map();
+
+// Seed from env var on startup
+for (const entry of (process.env.BANNED_USERS || '').split(',').map(s => s.trim()).filter(Boolean)) {
+    const colonIdx = entry.indexOf(':');
+    if (colonIdx === -1) continue;
+    const userId = entry.slice(0, colonIdx).trim();
+    const expiry = entry.slice(colonIdx + 1).trim();
+    if (userId && expiry) {
+        const date = new Date(expiry);
+        if (!isNaN(date.getTime())) bans.set(userId, date);
     }
-    return bans;
 }
 
 /**
@@ -25,28 +28,77 @@ function parseBans() {
  * @returns {{ banned: boolean, expiresAt?: Date, remainingLabel?: string }}
  */
 export function checkBan(userId) {
-    const bans = parseBans();
     const expiry = bans.get(userId);
     if (!expiry) return { banned: false };
 
     const now = new Date();
-    if (now >= expiry) return { banned: false }; // ban expired
+    if (now >= expiry) {
+        bans.delete(userId); // auto-cleanup expired bans
+        return { banned: false };
+    }
 
-    // Calculate remaining time
-    const diffMs = expiry - now;
+    return { banned: true, expiresAt: expiry, remainingLabel: formatRemaining(expiry - now) };
+}
+
+/**
+ * Ban a user for a specified duration.
+ * @param {string} userId
+ * @param {number} durationMs
+ * @returns {{ expiresAt: Date, label: string }}
+ */
+export function addBan(userId, durationMs) {
+    const expiresAt = new Date(Date.now() + durationMs);
+    bans.set(userId, expiresAt);
+    return { expiresAt, label: formatRemaining(durationMs) };
+}
+
+/**
+ * Remove a ban for a user.
+ * @param {string} userId
+ * @returns {boolean} true if they were banned
+ */
+export function removeBan(userId) {
+    return bans.delete(userId);
+}
+
+/**
+ * Parse a ban duration string (e.g. "30m", "12h", "3d", "7d").
+ * No upper limit for bans.
+ * @param {string} input
+ * @returns {{ ms: number, label: string } | { error: string }}
+ */
+export function parseBanDuration(input) {
+    if (!input) return { error: 'Duration is required.' };
+    const match = input.trim().match(/^(\d+)\s*([mhd])$/i);
+    if (!match) return { error: 'Invalid format. Use e.g. `30m`, `12h`, `3d`, `7d`.' };
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+
+    const multipliers = { m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+    const labels = { m: 'minute', h: 'hour', d: 'day' };
+
+    return {
+        ms: value * multipliers[unit],
+        label: `${value} ${labels[unit]}${value !== 1 ? 's' : ''}`,
+    };
+}
+
+/**
+ * Format a millisecond duration into a human-readable label.
+ * @param {number} diffMs
+ * @returns {string}
+ */
+function formatRemaining(diffMs) {
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.ceil((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    let remainingLabel;
     if (hours >= 24) {
         const days = Math.floor(hours / 24);
         const remHours = hours % 24;
-        remainingLabel = `${days}d ${remHours}h`;
+        return `${days}d ${remHours}h`;
     } else if (hours > 0) {
-        remainingLabel = `${hours}h ${minutes}m`;
-    } else {
-        remainingLabel = `${minutes}m`;
+        return `${hours}h ${minutes}m`;
     }
-
-    return { banned: true, expiresAt: expiry, remainingLabel };
+    return `${minutes}m`;
 }
