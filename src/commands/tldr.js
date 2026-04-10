@@ -78,6 +78,9 @@ export async function handleTldr(interaction) {
     await interaction.deferReply({ ephemeral: true });
     lap('deferred');
 
+    // ── Announce in channel ───────────────────────────────────────────────────
+    await interaction.channel.send(`🧙 **${interaction.member?.displayName || interaction.user.displayName || interaction.user.username}** requested a summary of the last **${parsed.label}**`);
+
     try {
         const channel = interaction.channel;
 
