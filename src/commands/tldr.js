@@ -6,6 +6,7 @@ import { parseDuration } from '../utils/duration.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
+import { checkBan } from '../utils/bans.js';
 
 // Owner IDs exempt from rate limiting (comma-separated in env)
 const OWNER_IDS = new Set(
@@ -59,6 +60,16 @@ export async function handleTldr(interaction) {
         const elapsed = Date.now() - t0;
         console.log(`[tldr] ${label} — ${elapsed}ms total`);
     };
+
+    // ── Ban check ────────────────────────────────────────────────────────────
+    const { banned, remainingLabel } = checkBan(interaction.user.id);
+    if (banned) {
+        await interaction.reply({
+            content: `🚫 You have been banned. You can use the tool again in **${remainingLabel}**.`,
+            ephemeral: true,
+        });
+        return;
+    }
 
     // ── Rate limit checks (owners exempt) ────────────────────────────────────
     const isOwner = OWNER_IDS.has(interaction.user.id);
