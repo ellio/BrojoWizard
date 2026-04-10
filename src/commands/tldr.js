@@ -14,6 +14,11 @@ const OWNER_IDS = new Set(
     (process.env.OWNER_USER_IDS || '').split(',').map(id => id.trim()).filter(Boolean)
 );
 
+// Per-channel cooldown: 1 request per 5 minutes
+const CHANNEL_COOLDOWN_MS = 5 * 60 * 1000;
+/** @type {Map<string, number>} channelId → last usage timestamp */
+const channelCooldowns = new Map();
+
 const SYSTEM_INSTRUCTION = `You are BrojoWizard, a casual and witty Discord conversation summarizer. 
 Your job is to read a conversation transcript and produce a concise TLDR summary.
 
@@ -51,18 +56,32 @@ export async function handleTldr(interaction) {
         console.log(`[tldr] ${label} — ${elapsed}ms total`);
     };
 
-    // ── Rate limit check (owners exempt) ─────────────────────────────────────
+    // ── Rate limit checks (owners exempt) ────────────────────────────────────
     const isOwner = OWNER_IDS.has(interaction.user.id);
-    const { allowed, retryAfterMs } = isOwner
-        ? { allowed: true }
-        : checkRateLimit(interaction.user.id);
-    if (!allowed) {
-        const retryMin = Math.ceil(retryAfterMs / 60000);
-        await interaction.reply({
-            content: `⏳ Slow down! You can use \`/tldr\` **2 times every 10 minutes**. Try again in ~${retryMin} min.`,
-            ephemeral: true,
-        });
-        return;
+
+    if (!isOwner) {
+        // Per-user rate limit
+        const { allowed, retryAfterMs } = checkRateLimit(interaction.user.id);
+        if (!allowed) {
+            const retryMin = Math.ceil(retryAfterMs / 60000);
+            await interaction.reply({
+                content: `⏳ Slow down! You can use \`/tldr\` **2 times every 10 minutes**. Try again in ~${retryMin} min.`,
+                ephemeral: true,
+            });
+            return;
+        }
+
+        // Per-channel cooldown (5 min)
+        const lastUsed = channelCooldowns.get(interaction.channelId);
+        if (lastUsed && (Date.now() - lastUsed) < CHANNEL_COOLDOWN_MS) {
+            const remainSec = Math.ceil((CHANNEL_COOLDOWN_MS - (Date.now() - lastUsed)) / 1000);
+            const remainMin = Math.ceil(remainSec / 60);
+            await interaction.reply({
+                content: `⏳ This channel was just summarized. Try again in ~${remainMin} min.`,
+                ephemeral: true,
+            });
+            return;
+        }
     }
 
     // ── Parse duration ────────────────────────────────────────────────────────
@@ -74,12 +93,12 @@ export async function handleTldr(interaction) {
         return;
     }
 
-    // ── Defer (this might take a while) ───────────────────────────────────────
-    await interaction.deferReply({ ephemeral: true });
-    lap('deferred');
+    // ── Record channel cooldown ───────────────────────────────────────────────
+    channelCooldowns.set(interaction.channelId, Date.now());
 
-    // ── Announce in channel ───────────────────────────────────────────────────
-    await interaction.channel.send(`🧙 **${interaction.member?.displayName || interaction.user.displayName || interaction.user.username}** requested a summary of the last **${parsed.label}**`);
+    // ── Defer (public reply — everyone will see the summary) ─────────────────
+    await interaction.deferReply();
+    lap('deferred');
 
     try {
         const channel = interaction.channel;
@@ -89,9 +108,7 @@ export async function handleTldr(interaction) {
         lap(`fetched ${messages.length} messages`);
 
         if (messages.length === 0) {
-            await interaction.editReply({
-                content: `🤷 No messages found in the last **${parsed.label}**. The channel's been quiet!`,
-            });
+            await interaction.editReply(`🤷 No messages found in the last **${parsed.label}**. The channel's been quiet!`);
             return;
         }
 
@@ -128,13 +145,17 @@ ${conversationText}`;
         const summary = result.text;
         lap(`gemini responded (${summary.length} chars)`);
 
-        // ── Send response ────────────────────────────────────────────────────
-        // Discord has a 2000 char limit for messages
-        const truncated = summary.length > 1900
-            ? summary.slice(0, 1900) + '\n\n*...summary truncated*'
-            : summary;
+        // ── Send response (public in channel) ───────────────────────────────
+        const requester = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+        const header = `🧙 **${requester}** requested a summary of the last **${parsed.label}**\n\n`;
+        const fullResponse = header + summary;
 
-        await interaction.editReply({ content: truncated });
+        // Discord has a 2000 char limit for messages
+        const truncated = fullResponse.length > 1900
+            ? fullResponse.slice(0, 1900) + '\n\n*...summary truncated*'
+            : fullResponse;
+
+        await interaction.editReply(truncated);
         lap('done');
 
     } catch (error) {
@@ -145,6 +166,7 @@ ${conversationText}`;
             ? '🔑 Gemini API key issue. Check your configuration.'
             : '💥 Something went wrong generating the summary. Try again in a moment.';
 
-        await interaction.editReply({ content: errorMsg }).catch(() => {});
+        // Errors go ephemeral via followUp so only the caller sees the failure
+        await interaction.editReply(errorMsg).catch(() => {});
     }
 }
