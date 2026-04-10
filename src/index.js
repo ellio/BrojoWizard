@@ -3,6 +3,7 @@
  * Main entry point.
  */
 
+import http from 'node:http';
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import 'dotenv/config';
 import { handleTldr } from './commands/tldr.js';
@@ -40,6 +41,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 // ── Periodic cleanup of rate limiter (every 15 min) ───────────────────────────
 setInterval(cleanupRateLimits, 15 * 60 * 1000);
+
+// ── Health check server (Cloud Run requires an HTTP listener) ─────────────────
+const PORT = process.env.PORT || 8080;
+const health = http.createServer((req, res) => {
+    if (req.url === '/health') {
+        const status = client.isReady() ? 200 : 503;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            status: client.isReady() ? 'ok' : 'starting',
+            uptime: process.uptime(),
+            guilds: client.guilds?.cache?.size ?? 0,
+        }));
+    } else {
+        res.writeHead(200);
+        res.end('BrojoWizard 🧙');
+    }
+});
+health.listen(PORT, () => {
+    console.log(`🏥 Health check listening on port ${PORT}`);
+});
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 client.login(process.env.DISCORD_BOT_TOKEN);
