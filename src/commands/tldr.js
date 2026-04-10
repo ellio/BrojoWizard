@@ -176,12 +176,17 @@ ${conversationText}`;
         const header = `🧙 **${requester}** requested a summary of the last **${parsed.label}**\n\n`;
         const fullResponse = header + summary + fallbackNote;
 
-        // Discord has a 2000 char limit for messages
-        const truncated = fullResponse.length > 1900
-            ? fullResponse.slice(0, 1900) + '\n\n*...summary truncated*'
-            : fullResponse;
-
-        await interaction.editReply(truncated);
+        // Discord has a 2000 char limit — split into 2 messages max
+        if (fullResponse.length <= 1900) {
+            await interaction.editReply(fullResponse);
+        } else {
+            await interaction.editReply(fullResponse.slice(0, 1900));
+            const second = fullResponse.slice(1900);
+            const secondContent = second.length > 1900
+                ? second.slice(0, 1860) + '\n\n*...summary truncated*'
+                : second;
+            await interaction.followUp(secondContent);
+        }
         lap('done');
 
     } catch (error) {
