@@ -21,7 +21,11 @@ for (const key of required) {
 
 // ── Create Discord client ─────────────────────────────────────────────────────
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+    ],
 });
 
 // ── Ready ─────────────────────────────────────────────────────────────────────
