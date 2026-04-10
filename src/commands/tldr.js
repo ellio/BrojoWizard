@@ -4,7 +4,7 @@
 
 import { parseDuration } from '../utils/duration.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
-import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
+import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
 
 // Owner IDs exempt from rate limiting (comma-separated in env)
@@ -28,14 +28,20 @@ Rules:
 - Call out key participants by name and what they were talking about
 - If there were disagreements or debates, mention both sides briefly
 - Don't just list every message — synthesize the themes and highlights
-- Keep the total summary under 1500 characters so it fits nicely in Discord
+- Keep the total summary under 1800 characters so it fits nicely in Discord
 
-Output format (use these exact headers):
+Output format (use these exact headers — skip any section marked CONDITIONAL if not provided):
 📋 **TLDR**
 A 2-4 sentence overview of what went down.
 
 🏅 **Fan Favorite**
 Reference the top-reacted message naturally with the provided link.
+
+🧙 **Wizard's Favorite** (CONDITIONAL — only if wizard favorite candidates are provided)
+From the top-reacted candidates provided, pick the one YOU think is the funniest or most entertaining. Editorialize it with your own hot take on why it's great. Include the message link.
+
+💎 **Hidden Gem** (CONDITIONAL — only if hidden gem candidates are provided)
+From the low/no-reaction candidates provided, pick the funniest message that deserved more love. Editorialize why this underrated gem should have gotten more attention. Include the message link.
 
 👥 **Key Players**
 Bullet points of who was active and what they were on about.
@@ -123,10 +129,37 @@ export async function handleTldr(interaction) {
             topMessageContext = `Top-reacted message (${totalReactions} reactions) by ${topAuthor}: "${topMessage.content}"\nLink: ${topMessage.url}`;
         }
 
+        // Wizard's Favorite candidates (top 10 reacted, excluding fan favorite, needs ≥50 msgs)
+        let wizardCandidatesContext = '';
+        if (messages.length >= 50) {
+            const topReacted = getTopReactedMessages(messages, 10, topMessage);
+            if (topReacted.length > 0) {
+                const formatted = topReacted.map((r, i) => {
+                    const author = r.message.member?.displayName || r.message.author.displayName || r.message.author.username;
+                    return `${i + 1}. [${r.maxSingle} max, ${r.cumulative} total reacts] ${author}: "${r.message.content?.slice(0, 120) || '[attachment]'}" — Link: ${r.message.url}`;
+                }).join('\n');
+                wizardCandidatesContext = `\n\nWIZARD'S FAVORITE CANDIDATES (pick the funniest one — these are the top-reacted messages, excluding the fan favorite):\n${formatted}`;
+            }
+        }
+
+        // Hidden Gem candidates (0-1 reactions)
+        let hiddenGemContext = '';
+        const gemCandidates = getHiddenGemCandidates(messages);
+        if (gemCandidates.length >= 3) {
+            const formatted = gemCandidates.map((msg, i) => {
+                const author = msg.member?.displayName || msg.author.displayName || msg.author.username;
+                const reacts = msg.reactions.cache.size > 0
+                    ? msg.reactions.cache.map(r => `${r.emoji.name}×${r.count}`).join(',')
+                    : 'none';
+                return `${i + 1}. [reacts: ${reacts}] ${author}: "${msg.content?.slice(0, 120)}" — Link: ${msg.url}`;
+            }).join('\n');
+            hiddenGemContext = `\n\nHIDDEN GEM CANDIDATES (pick the funniest underrated message with 0-1 reactions):\n${formatted}`;
+        }
+
         const userPrompt = `Summarize this Discord conversation from the last ${parsed.label} (${messages.length} messages, ${participants.size} participants).
 
 Top message info:
-${topMessageContext}
+${topMessageContext}${wizardCandidatesContext}${hiddenGemContext}
 
 Conversation transcript:
 ${conversationText}`;

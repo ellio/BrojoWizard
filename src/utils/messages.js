@@ -76,6 +76,55 @@ export function findTopReactedMessage(messages) {
 }
 
 /**
+ * Score a message for reaction ranking.
+ * Primary: highest single reaction count. Tiebreaker: cumulative total.
+ * @param {import('discord.js').Message} msg
+ * @returns {{ maxSingle: number, cumulative: number }}
+ */
+function reactionScore(msg) {
+    const reactions = msg.reactions.cache;
+    if (reactions.size === 0) return { maxSingle: 0, cumulative: 0 };
+    return {
+        maxSingle: reactions.reduce((max, r) => Math.max(max, r.count), 0),
+        cumulative: reactions.reduce((sum, r) => sum + r.count, 0),
+    };
+}
+
+/**
+ * Get top N reacted messages, sorted by reaction score (excluding a specific message).
+ * @param {import('discord.js').Message[]} messages
+ * @param {number} n
+ * @param {import('discord.js').Message | null} exclude - message to exclude (e.g. fan favorite)
+ * @returns {Array<{ message: import('discord.js').Message, maxSingle: number, cumulative: number }>}
+ */
+export function getTopReactedMessages(messages, n, exclude = null) {
+    return messages
+        .filter(msg => msg.reactions.cache.size > 0 && msg !== exclude && !msg.author.bot)
+        .map(msg => ({ message: msg, ...reactionScore(msg) }))
+        .sort((a, b) => b.maxSingle - a.maxSingle || b.cumulative - a.cumulative)
+        .slice(0, n);
+}
+
+/**
+ * Get messages with 0-1 total reactions (hidden gem candidates).
+ * Returns non-bot messages with actual text content, randomly sampled.
+ * @param {import('discord.js').Message[]} messages
+ * @param {number} maxCandidates - max to return
+ * @returns {import('discord.js').Message[]}
+ */
+export function getHiddenGemCandidates(messages, maxCandidates = 15) {
+    const candidates = messages.filter(msg => {
+        if (msg.author.bot) return false;
+        if (!msg.content || msg.content.length < 10) return false;
+        const total = msg.reactions.cache.reduce((sum, r) => sum + r.count, 0);
+        return total <= 1;
+    });
+    // Shuffle and take a sample so Gemini sees variety, not just chronological
+    const shuffled = candidates.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, maxCandidates);
+}
+
+/**
  * Get unique participants and their message counts.
  * @param {import('discord.js').Message[]} messages
  * @returns {Map<string, { displayName: string, count: number }>}
