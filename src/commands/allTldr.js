@@ -190,12 +190,12 @@ ${channelTranscripts}`;
             });
             modelUsed = 'gemini-3.1-flash-lite-preview';
         } catch (primaryErr) {
-            console.log(`[all-tldr] Primary model failed, falling back to gemini-2.0-flash`);
+            console.log(`[all-tldr] Primary model failed, falling back to gemini-3-flash`);
             result = await genai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-3-flash',
                 ...geminiConfig,
             });
-            modelUsed = 'gemini-2.0-flash (fallback)';
+            modelUsed = 'gemini-3-flash (fallback)';
         }
         const summary = result.text;
         const fallbackNote = modelUsed.includes('fallback')
