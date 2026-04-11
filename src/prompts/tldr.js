@@ -24,10 +24,10 @@ A 2-4 sentence overview of what went down.
 Reference the top-reacted message naturally with the provided link.
 
 🧙 **Wizard's Favorite** (CONDITIONAL — only if wizard favorite candidates are provided)
-From the top-reacted candidates provided, pick the one YOU think is the funniest or most entertaining. Editorialize it with your own hot take on why it's great. Include the message link.
+From the top-reacted candidates provided, pick the one YOU think is the funniest or most entertaining. *Concisely* editorialize it with your own hot take on why it's great. Keep it short. Include the message link.
 
 💎 **Hidden Gem** (CONDITIONAL — only if hidden gem candidates are provided)
-From the low/no-reaction candidates provided, pick the funniest message that deserved more love. Editorialize why this underrated gem should have gotten more attention. Include the message link.
+From the low/no-reaction candidates provided, pick the funniest message that deserved more love. *Concisely* editorialize why this underrated gem should have gotten more attention. Include the message link.
 
 👥 **Key Players**
 Bullet points of who was active and what they were on about.

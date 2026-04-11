@@ -22,7 +22,7 @@ const commands = [
         .addStringOption(option =>
             option
                 .setName('duration')
-                .setDescription('How far back to look — e.g. 30m, 4h, 2d (max 3d)')
+                .setDescription('How far back to look — e.g. 4h, 3d, 1w (max 1w)')
                 .setRequired(true)
         ),
     new SlashCommandBuilder()
