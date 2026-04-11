@@ -3,7 +3,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { MODELS } from '../config/models.js';
+import { TLDR_MODELS } from '../config/models.js';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -14,9 +14,10 @@ const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * @param {string} prompt - The user prompt
  * @param {string} systemInstruction - System instruction for the model
  * @param {string} tag - Logging tag (e.g. 'tldr', 'all-tldr')
+ * @param {string[]} [models] - Model fallback chain (defaults to TLDR_MODELS)
  * @returns {Promise<{ text: string, model: string, isFallback: boolean }>}
  */
-export async function generateWithFallback(prompt, systemInstruction, tag = 'gemini') {
+export async function generateWithFallback(prompt, systemInstruction, tag = 'gemini', models = TLDR_MODELS) {
     const config = {
         contents: prompt,
         config: {
@@ -26,8 +27,8 @@ export async function generateWithFallback(prompt, systemInstruction, tag = 'gem
     };
 
     let lastError;
-    for (let i = 0; i < MODELS.length; i++) {
-        const model = MODELS[i];
+    for (let i = 0; i < models.length; i++) {
+        const model = models[i];
         try {
             const result = await genai.models.generateContent({ model, ...config });
             const usage = result.usageMetadata || {};

@@ -6,6 +6,7 @@ import { ChannelType } from 'discord.js';
 import { parseDuration } from '../utils/duration.js';
 import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
+import { ALL_TLDR_MODELS } from '../config/models.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
 
 // Owner IDs exempt from rate limiting (comma-separated in env)
@@ -163,7 +164,7 @@ export async function handleAllTldr(interaction) {
 
         // ── Call Gemini ──────────────────────────────────────────────────────
         const { text: summary, model: modelUsed, isFallback } = await generateWithFallback(
-            userPrompt, ALL_TLDR_SYSTEM_INSTRUCTION, 'all-tldr'
+            userPrompt, ALL_TLDR_SYSTEM_INSTRUCTION, 'all-tldr', ALL_TLDR_MODELS
         );
         const fallbackNote = isFallback ? FALLBACK_NOTE : '';
         lap(`gemini responded via ${modelUsed} (${summary.length} chars)`);
