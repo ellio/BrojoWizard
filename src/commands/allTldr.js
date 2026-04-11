@@ -2,7 +2,7 @@
  * /all-tldr slash command — Server-wide summary across all channels.
  */
 
-import { ChannelType } from 'discord.js';
+import { ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentType } from 'discord.js';
 import { parseDuration } from '../utils/duration.js';
 import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
@@ -198,12 +198,23 @@ export async function handleAllTldr(interaction) {
 
         const fullResponse = lines.join('\n');
 
+        // ── Send ephemeral preview with approve button ───────────────────
+        const approveButton = new ButtonBuilder()
+            .setCustomId('all-tldr-approve')
+            .setLabel('📢 Post to Channel')
+            .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(approveButton);
+
         // Discord 2000 char limit — split if needed
         if (fullResponse.length <= 1900) {
-            await interaction.editReply(fullResponse);
+            await interaction.editReply({ content: fullResponse, components: [row] });
         } else {
-            // Send first chunk as reply, rest as followups
-            await interaction.editReply(fullResponse.slice(0, 1900) + '\n\n*...continued below*');
+            // Send first chunk as reply with button, rest as followups
+            await interaction.editReply({
+                content: fullResponse.slice(0, 1900) + '\n\n*...continued below*',
+                components: [row],
+            });
             const remaining = fullResponse.slice(1900);
             for (let i = 0; i < remaining.length; i += 1900) {
                 await interaction.followUp({
@@ -211,6 +222,42 @@ export async function handleAllTldr(interaction) {
                     flags: 64,
                 });
             }
+        }
+
+        // ── Wait for button click (5 min timeout) ────────────────────────
+        try {
+            const reply = await interaction.fetchReply();
+            const buttonInteraction = await reply.awaitMessageComponent({
+                componentType: ComponentType.Button,
+                filter: (i) => i.customId === 'all-tldr-approve' && i.user.id === interaction.user.id,
+                time: 5 * 60 * 1000,
+            });
+
+            // Post publicly to the channel
+            const requester = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+            const publicHeader = `🧙 **${requester}** requested a server-wide summary of the last **${parsed.label}**\n\n`;
+            const publicResponse = publicHeader + fullResponse;
+
+            if (publicResponse.length <= 1900) {
+                await interaction.channel.send(publicResponse);
+            } else {
+                await interaction.channel.send(publicResponse.slice(0, 1900) + '\n\n*...continued below*');
+                const remaining = publicResponse.slice(1900);
+                for (let i = 0; i < remaining.length; i += 1900) {
+                    await interaction.channel.send(remaining.slice(i, i + 1900));
+                }
+            }
+
+            // Disable the button after use
+            approveButton.setDisabled(true).setLabel('✅ Posted');
+            await buttonInteraction.update({ components: [row] });
+            lap('posted to channel');
+
+        } catch {
+            // Timeout — disable the button
+            approveButton.setDisabled(true).setLabel('⏰ Expired');
+            await interaction.editReply({ components: [row] }).catch(() => {});
+            lap('button expired');
         }
         lap('done');
 
