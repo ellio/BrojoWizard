@@ -4,7 +4,7 @@
 
 import { ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentType } from 'discord.js';
 import { parseDuration, MAX_1W } from '../utils/duration.js';
-import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
+import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
 import { ALL_TLDR_MODELS } from '../config/models.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
@@ -126,9 +126,9 @@ export async function handleAllTldr(interaction) {
             }
         }
 
-        // ── Find fan favorites from top 2 channels ──────────────────────────
+        // ── Find fan favorites from top 3 channels ──────────────────────────
         const topChannelFavs = ranked
-            .slice(0, 2)
+            .slice(0, 3)
             .filter(ch => ch.fanFavorite && ch.fanFavorite.message !== globalFanFav)
             .map(ch => ({
                 channel: ch.name,
@@ -154,12 +154,42 @@ export async function handleAllTldr(interaction) {
             channelTranscripts += `\n--- #${ch.name} (${ch.messages.length} messages) ---\n${trimmed}\n`;
         }
 
+        // ── Wizard's Favorite & Hidden Gem candidates (across all server messages) ──
+        const allMessages = ranked.flatMap(ch => ch.messages);
+
+        let wizardCandidatesContext = '';
+        if (allMessages.length >= 50) {
+            const topReacted = getTopReactedMessages(allMessages, 10, globalFanFav);
+            if (topReacted.length > 0) {
+                const formatted = topReacted.map((r, i) => {
+                    const author = r.message.member?.displayName || r.message.author.displayName || r.message.author.username;
+                    return `${i + 1}. [${r.maxSingle} max, ${r.cumulative} total reacts] ${author}: "${r.message.content?.slice(0, 120) || '[attachment]'}" — Link: ${r.message.url}`;
+                }).join('\n');
+                wizardCandidatesContext = `\n\nWIZARD'S FAVORITE CANDIDATES (pick the funniest one — these are the top-reacted messages server-wide, excluding the fan favorite):\n${formatted}`;
+            }
+        }
+
+        let hiddenGemContext = '';
+        const gemCandidates = getHiddenGemCandidates(allMessages);
+        if (gemCandidates.length >= 3) {
+            const formatted = gemCandidates.map((msg, i) => {
+                const author = msg.member?.displayName || msg.author.displayName || msg.author.username;
+                const reacts = msg.reactions.cache.size > 0
+                    ? msg.reactions.cache.map(r => `${r.emoji.name}×${r.count}`).join(',')
+                    : 'none';
+                return `${i + 1}. [reacts: ${reacts}] ${author}: "${msg.content?.slice(0, 120)}" — Link: ${msg.url}`;
+            }).join('\n');
+            hiddenGemContext = `\n\nHIDDEN GEM CANDIDATES (pick the funniest underrated message with 0-1 reactions from across the server):\n${formatted}`;
+        }
+
         const userPrompt = buildAllTldrPrompt({
             durationLabel: parsed.label,
             totalMessages,
             channelCount: channelData.size,
             participantCount: totalParticipants.size,
             channelTranscripts,
+            wizardCandidatesContext,
+            hiddenGemContext,
         });
 
         // ── Call Gemini ──────────────────────────────────────────────────────
