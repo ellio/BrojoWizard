@@ -180,3 +180,13 @@ export function formatForPrompt(messages) {
 
     return lines.join('\n');
 }
+
+/**
+ * Wrap raw URLs in angle brackets to suppress Discord embed previews.
+ * e.g. "https://x.com/foo" → "<https://x.com/foo>"
+ * @param {string} text
+ * @returns {string}
+ */
+export function suppressEmbeds(text) {
+    return text.replace(/(https?:\/\/[^\s>)]+)/g, '<$1>');
+}

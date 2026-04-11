@@ -4,7 +4,7 @@
 
 import { parseDuration } from '../utils/duration.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
-import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
+import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt, suppressEmbeds } from '../utils/messages.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
 import { checkBan } from '../utils/bans.js';
 import { TLDR_SYSTEM_INSTRUCTION, buildTldrPrompt } from '../prompts/tldr.js';
@@ -161,7 +161,7 @@ export async function handleTldr(interaction) {
         // 0.40mL per 1000 input tokens, 1 tsp ≈ 4.93mL
         const tsp = ((tokens.input / 1000) * 0.40 / 4.93).toFixed(1);
         const waterNote = `\n\n*💧 This request used ${tsp} teaspoons of water*`;
-        const fullResponse = header + summary + fallbackNote + waterNote;
+        const fullResponse = header + suppressEmbeds(summary) + fallbackNote + waterNote;
 
         // Discord has a 2000 char limit — split into 2 messages max
         if (fullResponse.length <= 1900) {

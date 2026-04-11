@@ -4,7 +4,7 @@
 
 import { ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentType } from 'discord.js';
 import { parseDuration, MAX_1W } from '../utils/duration.js';
-import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
+import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt, suppressEmbeds } from '../utils/messages.js';
 import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
 import { ALL_TLDR_MODELS } from '../config/models.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
@@ -215,14 +215,14 @@ export async function handleAllTldr(interaction) {
         if (globalFanFav) {
             const author = globalFanFav.member?.displayName || globalFanFav.author.displayName || globalFanFav.author.username;
             lines.push(`🏅 **Server Fan Favorite** (${globalCumulative} reactions in #${globalFanFavChannel})`);
-            lines.push(`> ${author}: "${globalFanFav.content?.slice(0, 100) || '[attachment]'}" — [jump to message](${globalFanFav.url})\n`);
+            lines.push(`> ${author}: "${suppressEmbeds(globalFanFav.content?.slice(0, 100) || '[attachment]')}" — [jump to message](${globalFanFav.url})\n`);
         }
 
         // Top channel fan favorites
         for (const fav of topChannelFavs) {
             const author = fav.message.member?.displayName || fav.message.author.displayName || fav.message.author.username;
             lines.push(`⭐ **#${fav.channel} Highlight** (${fav.reactions} reactions)`);
-            lines.push(`> ${author}: "${fav.message.content?.slice(0, 80) || '[attachment]'}" — [jump](${fav.message.url})\n`);
+            lines.push(`> ${author}: "${suppressEmbeds(fav.message.content?.slice(0, 80) || '[attachment]')}" — [jump](${fav.message.url})\n`);
         }
 
         // Channel activity overview
@@ -231,7 +231,7 @@ export async function handleAllTldr(interaction) {
         lines.push(`Most active: ${topList}\n`);
 
         // AI summary
-        lines.push(summary);
+        lines.push(suppressEmbeds(summary));
         lines.push(fallbackNote);
         lines.push(waterNote);
 
