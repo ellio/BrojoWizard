@@ -3,14 +3,9 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { MODELS } from '../config/models.js';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Model preference order — first that succeeds wins
-const MODELS = [
-    'gemini-3.1-flash-lite-preview',
-    'gemini-2.5-flash-lite',
-];
 
 /**
  * Generate content with automatic model fallback.
