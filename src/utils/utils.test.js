@@ -39,10 +39,10 @@ describe('parseDuration', () => {
         assert.ok(result.cutoff instanceof Date);
     });
 
-    it('rejects durations over 3 days', () => {
+    it('rejects durations over 3 days (default max)', () => {
         const result = parseDuration('4d');
         assert.ok(result.error);
-        assert.ok(result.error.includes('3 days'));
+        assert.ok(result.error.includes('3d'));
     });
 
     it('rejects invalid format', () => {

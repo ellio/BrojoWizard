@@ -3,7 +3,7 @@
  */
 
 import { ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentType } from 'discord.js';
-import { parseDuration } from '../utils/duration.js';
+import { parseDuration, MAX_1W } from '../utils/duration.js';
 import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
 import { ALL_TLDR_MODELS } from '../config/models.js';
@@ -42,7 +42,7 @@ export async function handleAllTldr(interaction) {
 
     // ── Parse duration ────────────────────────────────────────────────────────
     const durationInput = interaction.options.getString('duration');
-    const parsed = parseDuration(durationInput);
+    const parsed = parseDuration(durationInput, MAX_1W);
 
     if (parsed.error) {
         await interaction.reply({ content: `❌ ${parsed.error}`, ephemeral: true });
