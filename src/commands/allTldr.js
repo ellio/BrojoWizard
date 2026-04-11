@@ -193,10 +193,12 @@ export async function handleAllTldr(interaction) {
         });
 
         // ── Call Gemini ──────────────────────────────────────────────────────
-        const { text: summary, model: modelUsed, isFallback } = await generateWithFallback(
+        const { text: summary, model: modelUsed, isFallback, tokens } = await generateWithFallback(
             userPrompt, ALL_TLDR_SYSTEM_INSTRUCTION, 'all-tldr', ALL_TLDR_MODELS
         );
         const fallbackNote = isFallback ? FALLBACK_NOTE : '';
+        const tsp = ((tokens.input / 1000) * 0.40 / 4.93).toFixed(1);
+        const waterNote = `\n*💧 This request used ${tsp} teaspoons of water*`;
         lap(`gemini responded via ${modelUsed} (${summary.length} chars)`);
 
         // ── Build response ───────────────────────────────────────────────────
@@ -225,6 +227,7 @@ export async function handleAllTldr(interaction) {
         // AI summary
         lines.push(summary);
         lines.push(fallbackNote);
+        lines.push(waterNote);
 
         const fullResponse = lines.join('\n');
 
