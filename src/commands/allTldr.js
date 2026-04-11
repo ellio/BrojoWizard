@@ -147,9 +147,9 @@ export async function handleAllTldr(interaction) {
         let channelTranscripts = '';
         for (const ch of summaryChannels) {
             const transcript = formatForPrompt(ch.messages);
-            // Cap per-channel prompt to ~3000 chars to stay within limits
-            const trimmed = transcript.length > 3000
-                ? transcript.slice(0, 3000) + '\n[...truncated]'
+            // Cap per-channel prompt to ~10000 chars (pro model has 1M context window)
+            const trimmed = transcript.length > 10000
+                ? transcript.slice(0, 10000) + '\n[...truncated]'
                 : transcript;
             channelTranscripts += `\n--- #${ch.name} (${ch.messages.length} messages) ---\n${trimmed}\n`;
         }
