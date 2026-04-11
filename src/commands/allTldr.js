@@ -5,6 +5,7 @@
 import { ChannelType } from 'discord.js';
 import { parseDuration } from '../utils/duration.js';
 import { fetchMessagesSince, findTopReactedMessage, getParticipants, formatForPrompt } from '../utils/messages.js';
+import { ALL_TLDR_SYSTEM_INSTRUCTION, buildAllTldrPrompt } from '../prompts/allTldr.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
 
 // Owner IDs exempt from rate limiting (comma-separated in env)
@@ -12,15 +13,7 @@ const OWNER_IDS = new Set(
     (process.env.OWNER_USER_IDS || '').split(',').map(id => id.trim()).filter(Boolean)
 );
 
-const SYSTEM_INSTRUCTION = `You are BrojoWizard, a casual and witty Discord server summarizer.
-You are summarizing activity across MULTIPLE channels in a Discord server.
 
-Rules:
-- Keep it casual and conversational
-- Use Discord markdown formatting (bold, bullet points, etc.)
-- Synthesize themes, don't just list messages
-- Each channel summary should be 2-4 sentences max
-- Keep the total output under 1800 characters`;
 
 const MAX_SUMMARY_CHANNELS = 5;
 const MIN_MESSAGES_FOR_SUMMARY = 30;
@@ -160,19 +153,17 @@ export async function handleAllTldr(interaction) {
             channelTranscripts += `\n--- #${ch.name} (${ch.messages.length} messages) ---\n${trimmed}\n`;
         }
 
-        const userPrompt = `Summarize this Discord SERVER's activity over the last ${parsed.label}.
-There were ${totalMessages} messages across ${channelData.size} channels from ${totalParticipants.size} participants.
-
-Provide a brief 2-3 sentence server overview, then a short summary for each channel listed below.
-Use the format:
-**#channel-name** — summary here
-
-Channel transcripts:
-${channelTranscripts}`;
+        const userPrompt = buildAllTldrPrompt({
+            durationLabel: parsed.label,
+            totalMessages,
+            channelCount: channelData.size,
+            participantCount: totalParticipants.size,
+            channelTranscripts,
+        });
 
         // ── Call Gemini ──────────────────────────────────────────────────────
         const { text: summary, model: modelUsed, isFallback } = await generateWithFallback(
-            userPrompt, SYSTEM_INSTRUCTION, 'all-tldr'
+            userPrompt, ALL_TLDR_SYSTEM_INSTRUCTION, 'all-tldr'
         );
         const fallbackNote = isFallback ? FALLBACK_NOTE : '';
         lap(`gemini responded via ${modelUsed} (${summary.length} chars)`);

@@ -8,7 +8,11 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "register": "node src/commands/register.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "testbed": "node testbed/run.js",
+    "testbed:dry": "node testbed/run.js --dry-run",
+    "testbed:all": "node testbed/run.js --all",
+    "testbed:capture": "node testbed/capture.js"
   },
   "repository": {
     "type": "git",

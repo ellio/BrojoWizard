@@ -7,6 +7,7 @@ import { checkRateLimit } from '../utils/rateLimiter.js';
 import { fetchMessagesSince, findTopReactedMessage, getTopReactedMessages, getHiddenGemCandidates, getParticipants, formatForPrompt } from '../utils/messages.js';
 import { generateWithFallback, FALLBACK_NOTE } from '../utils/gemini.js';
 import { checkBan } from '../utils/bans.js';
+import { TLDR_SYSTEM_INSTRUCTION, buildTldrPrompt } from '../prompts/tldr.js';
 
 // Owner IDs exempt from rate limiting (comma-separated in env)
 const OWNER_IDS = new Set(
@@ -18,37 +19,7 @@ const CHANNEL_COOLDOWN_MS = 5 * 60 * 1000;
 /** @type {Map<string, number>} channelId → last usage timestamp */
 const channelCooldowns = new Map();
 
-const SYSTEM_INSTRUCTION = `You are BrojoWizard, a casual and witty Discord conversation summarizer. 
-Your job is to read a conversation transcript and produce a concise TLDR summary.
 
-Rules:
-- Keep it casual and conversational, like you're catching up a friend
-- Be concise but capture the important stuff
-- Use Discord markdown formatting (bold, bullet points, etc.)
-- When a "top message" link is provided, reference it naturally in your summary
-- Call out key participants by name and what they were talking about
-- If there were disagreements or debates, mention both sides briefly
-- Don't just list every message — synthesize the themes and highlights
-- Keep the total summary under 1800 characters so it fits nicely in Discord
-
-Output format (use these exact headers — skip any section marked CONDITIONAL if not provided):
-📋 **TLDR**
-A 2-4 sentence overview of what went down.
-
-🏅 **Fan Favorite**
-Reference the top-reacted message naturally with the provided link.
-
-🧙 **Wizard's Favorite** (CONDITIONAL — only if wizard favorite candidates are provided)
-From the top-reacted candidates provided, pick the one YOU think is the funniest or most entertaining. Editorialize it with your own hot take on why it's great. Include the message link.
-
-💎 **Hidden Gem** (CONDITIONAL — only if hidden gem candidates are provided)
-From the low/no-reaction candidates provided, pick the funniest message that deserved more love. Editorialize why this underrated gem should have gotten more attention. Include the message link.
-
-👥 **Key Players**
-Bullet points of who was active and what they were on about.
-
-📊 **By The Numbers**
-Message count, participant count, time span — keep it one line.`;
 
 /**
  * Handle the /tldr interaction.
@@ -167,17 +138,19 @@ export async function handleTldr(interaction) {
             hiddenGemContext = `\n\nHIDDEN GEM CANDIDATES (pick the funniest underrated message with 0-1 reactions):\n${formatted}`;
         }
 
-        const userPrompt = `Summarize this Discord conversation from the last ${parsed.label} (${messages.length} messages, ${participants.size} participants).
-
-Top message info:
-${topMessageContext}${wizardCandidatesContext}${hiddenGemContext}
-
-Conversation transcript:
-${conversationText}`;
+        const userPrompt = buildTldrPrompt({
+            durationLabel: parsed.label,
+            messageCount: messages.length,
+            participantCount: participants.size,
+            topMessageContext,
+            wizardCandidatesContext,
+            hiddenGemContext,
+            conversationText,
+        });
 
         // ── Call Gemini ──────────────────────────────────────────────────────
         const { text: summary, model: modelUsed, isFallback, tokens } = await generateWithFallback(
-            userPrompt, SYSTEM_INSTRUCTION, 'tldr'
+            userPrompt, TLDR_SYSTEM_INSTRUCTION, 'tldr'
         );
         const fallbackNote = isFallback ? FALLBACK_NOTE : '';
         lap(`gemini responded via ${modelUsed} (${summary.length} chars)`);
