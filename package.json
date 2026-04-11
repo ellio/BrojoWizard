@@ -9,6 +9,8 @@
     "dev": "node --watch src/index.js",
     "register": "node src/commands/register.js",
     "test": "node --test src/**/*.test.js",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
+    "deploy:skip-build": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -SkipBuild",
     "testbed": "node testbed/run.js",
     "testbed:dry": "node testbed/run.js --dry-run",
     "testbed:all": "node testbed/run.js --all",
