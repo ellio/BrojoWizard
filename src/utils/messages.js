@@ -91,15 +91,18 @@ function reactionScore(msg) {
 }
 
 /**
- * Get top N reacted messages, sorted by reaction score (excluding a specific message).
+ * Get top N reacted messages, sorted by reaction score (excluding specific messages).
  * @param {import('discord.js').Message[]} messages
  * @param {number} n
- * @param {import('discord.js').Message | null} exclude - message to exclude (e.g. fan favorite)
+ * @param {Set<import('discord.js').Message> | import('discord.js').Message | null} exclude - message(s) to exclude
  * @returns {Array<{ message: import('discord.js').Message, maxSingle: number, cumulative: number }>}
  */
 export function getTopReactedMessages(messages, n, exclude = null) {
+    const excludeSet = exclude instanceof Set ? exclude
+        : exclude ? new Set([exclude])
+        : new Set();
     return messages
-        .filter(msg => msg.reactions.cache.size > 0 && msg !== exclude && !msg.author.bot)
+        .filter(msg => msg.reactions.cache.size > 0 && !excludeSet.has(msg) && !msg.author.bot)
         .map(msg => ({ message: msg, ...reactionScore(msg) }))
         .sort((a, b) => b.maxSingle - a.maxSingle || b.cumulative - a.cumulative)
         .slice(0, n);

@@ -157,9 +157,14 @@ export async function handleAllTldr(interaction) {
         // ── Wizard's Favorite & Hidden Gem candidates (across all server messages) ──
         const allMessages = ranked.flatMap(ch => ch.messages);
 
+        // Build exclusion set: global fan fav + all channel highlight messages
+        const featuredMessages = new Set();
+        if (globalFanFav) featuredMessages.add(globalFanFav);
+        for (const fav of topChannelFavs) featuredMessages.add(fav.message);
+
         let wizardCandidatesContext = '';
         if (allMessages.length >= 50) {
-            const topReacted = getTopReactedMessages(allMessages, 10, globalFanFav);
+            const topReacted = getTopReactedMessages(allMessages, 10, featuredMessages);
             if (topReacted.length > 0) {
                 const formatted = topReacted.map((r, i) => {
                     const author = r.message.member?.displayName || r.message.author.displayName || r.message.author.username;
@@ -170,7 +175,8 @@ export async function handleAllTldr(interaction) {
         }
 
         let hiddenGemContext = '';
-        const gemCandidates = getHiddenGemCandidates(allMessages);
+        const gemCandidates = getHiddenGemCandidates(allMessages)
+            .filter(msg => !featuredMessages.has(msg));
         if (gemCandidates.length >= 3) {
             const formatted = gemCandidates.map((msg, i) => {
                 const author = msg.member?.displayName || msg.author.displayName || msg.author.username;
