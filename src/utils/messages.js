@@ -184,9 +184,11 @@ export function formatForPrompt(messages) {
 /**
  * Wrap raw URLs in angle brackets to suppress Discord embed previews.
  * e.g. "https://x.com/foo" → "<https://x.com/foo>"
+ * Skips URLs already inside markdown links [text](url) so they render properly.
  * @param {string} text
  * @returns {string}
  */
 export function suppressEmbeds(text) {
-    return text.replace(/(https?:\/\/[^\s>)]+)/g, '<$1>');
+    // Negative lookbehind: skip URLs preceded by ]( (markdown link syntax)
+    return text.replace(/(?<!\]\()https?:\/\/[^\s>)]+/g, '<$&>');
 }
